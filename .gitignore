@@ -1,0 +1,35 @@
+#Python
+__pycache__/
+*.pyc
+*.egg-info/
+
+# Build / Packaging
+dist/
+build/
+
+# Virtual Environements
+venv/
+.venv/
+env/
+
+# IDEs
+.vscode/
+.idea/
+.cursor/
+
+# OS
+.DS_Store
+desktop.ini
+
+# Logs
+logs/
+*.log
+
+# Prometheus
+textfile_inputs/
+*.prom
+
+# Environement / Secrets
+.env
+.env.*
+config.yaml
