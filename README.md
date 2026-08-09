@@ -54,13 +54,12 @@ Coming Soon...
 - [x] Add MIT `LICENSE`
 - [x] Add `README.md`
 - [x] Define project layout
-- [ ] Add `requirements.txt`
+- [x] Add `requirements.txt`
 
 
 ### Config
 - [ ] Create `config.default.yaml`
 - [ ] Config loader (copy default -> `config.yaml` on first run)
-- [ ] Validate configuration values
 
 ### Domain Models
 - [ ] `Metric`
