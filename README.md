@@ -72,13 +72,13 @@ Coming Soon...
 - [ ] `ExporterHealth`
 
 ### Ingest Pipeline
-- [ ] Fetch LibreHardwareMonitor `/metrics`
+- [x] Fetch LibreHardwareMonitor `/metrics`
 - [ ] Handle connection failures, invalid responses, empty responses
 - [ ] Log connection errors
-- [ ] Parse Prometheus text
-- [ ] Parse metrics names, labels, values
-- [ ] Handle unknown metrics - skip
-- [ ] Classify metrics by hardware group (`cpu`, `gpunvidia`, `storage`, ...)
+- [x] Parse Prometheus text
+- [x] Parse metrics names, labels, values
+- [x] Handle unknown metrics - skip
+- [x] Classify metrics by hardware group (`cpu`, `gpunvidia`, `storage`, ...)
 
 ### Normalize (AMD CPU + NVIDIA GPU + Disks)
 - [ ] Normalizer skeleton + safe index helpers
