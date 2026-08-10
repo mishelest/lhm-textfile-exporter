@@ -59,7 +59,7 @@ Coming Soon...
 
 ### Config
 - [x] Create `config.default.yaml`
-- [ ] Config loader (copy default -> `config.yaml` on first run)
+- [x] Config loader (copy default -> `config.yaml` on first run)
 
 ### Domain Models
 - [ ] `Metric`
