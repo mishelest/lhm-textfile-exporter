@@ -58,7 +58,7 @@ Coming Soon...
 
 
 ### Config
-- [ ] Create `config.default.yaml`
+- [x] Create `config.default.yaml`
 - [ ] Config loader (copy default -> `config.yaml` on first run)
 
 ### Domain Models

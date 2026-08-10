@@ -1,0 +1,13 @@
+librehardwaremonitor:
+  url: "http://127.0.0.1:8080/metrics"
+
+
+exporter:
+  scrape_interval_seconds: 5
+  output_dir: "textfile_inputs"
+  output_file: "hardware.prom"
+
+
+logging:
+  level: "INFO"
+  file: "logs/exporter.log"
