@@ -62,7 +62,7 @@ Coming Soon...
 - [x] Config loader (copy default -> `config.yaml` on first run)
 
 ### Domain Models
-- [ ] `Metric`
+- [x] `Metric`
 - [ ] CPU models
 - [ ] GPU models
 - [ ] Motherboard models
