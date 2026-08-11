@@ -64,10 +64,10 @@ Coming Soon...
 ### Domain Models
 - [x] `Metric`
 - [x] CPU models
-- [ ] GPU models
-- [ ] Motherboard models
-- [ ] Memory models
-- [ ] Storage models
+- [x] GPU models
+- [x] Motherboard models
+- [x] Memory models
+- [x] Storage models
 - [x] `HardwareMetrics`
 - [ ] `ExporterHealth`
 
