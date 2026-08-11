@@ -63,12 +63,12 @@ Coming Soon...
 
 ### Domain Models
 - [x] `Metric`
-- [ ] CPU models
+- [x] CPU models
 - [ ] GPU models
 - [ ] Motherboard models
 - [ ] Memory models
 - [ ] Storage models
-- [ ] `HardwareMetrics`
+- [x] `HardwareMetrics`
 - [ ] `ExporterHealth`
 
 ### Ingest Pipeline
@@ -81,9 +81,9 @@ Coming Soon...
 - [x] Classify metrics by hardware group (`cpu`, `gpunvidia`, `storage`, ...)
 
 ### Normalize (AMD CPU + NVIDIA GPU + Disks)
-- [ ] Normalizer skeleton + safe index helpers
+- [x] Normalizer skeleton + safe index helpers
 - [ ] Motherboard fans / temps / voltages
-- [ ] AMD CPU Package + per-core sensors
+- [x] AMD CPU Package + per-core sensors
 - [ ] NVIDIA GPU sensors
 - [ ] Memory sensors
 - [ ] Storage sensors (NVMe, SSD, HDD)
