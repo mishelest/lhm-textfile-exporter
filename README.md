@@ -82,11 +82,11 @@ Coming Soon...
 
 ### Normalize (AMD CPU + NVIDIA GPU + Disks)
 - [x] Normalizer skeleton + safe index helpers
-- [ ] Motherboard fans / temps / voltages
+- [x] Motherboard fans / temps / voltages
 - [x] AMD CPU Package + per-core sensors
-- [ ] NVIDIA GPU sensors
-- [ ] Memory sensors
-- [ ] Storage sensors (NVMe, SSD, HDD)
+- [x] NVIDIA GPU sensors
+- [x] Memory sensors
+- [x] Storage sensors (NVMe, SSD, HDD)
 
 ### Export & run
 - [ ] Prometheus textfile writer (`# HELP` / `# TYPE`, atomic write + Windows retry)
