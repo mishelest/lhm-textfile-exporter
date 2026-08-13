@@ -145,7 +145,7 @@ class Normalizer:
 
 
                 # -- Fan Control -- #
-                case "lhm_motherboard_fan_control_percent":
+                case "lhm_motherboard_control_percent":
 
                     fan_index = self._get_fan_index(sensor_name, 1)
                     if fan_index is None:
