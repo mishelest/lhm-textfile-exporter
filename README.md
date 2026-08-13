@@ -89,10 +89,10 @@ Coming Soon...
 - [x] Storage sensors (NVMe, SSD, HDD)
 
 ### Export & run
-- [ ] Prometheus textfile writer (`# HELP` / `# TYPE`, atomic write + Windows retry)
-- [ ] Export all hardware metrics (`hardware_*`)
+- [x] Prometheus textfile writer (`# HELP` / `# TYPE`, atomic write + Windows retry)
+- [x] Export all hardware metrics (`hardware_*`)
 - [ ] Exporter health metrics (`up`, scrape duration, last success, errors)
-- [ ] Service wiring (config + pipeline + logging setup)
+- [x] Service wiring (config + pipeline + logging setup)
 - [ ] Resilient scrape loop (keep last good samples; rewrite file with `up=0` on failure)
 - [ ] `main.py` entrypoint
 - [ ] End-to-end verified run with LibreHardwareMonitor + `hardware.prom` updates

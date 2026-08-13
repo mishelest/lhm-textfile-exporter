@@ -39,6 +39,14 @@ class PrometheusExporter:
             f.write("\n")
 
 
+        for _ in range(5):
+            try:
+                os.replace(output_path, target)
+                break
+            except PermissionError:
+                time.sleep(0.1)
+
+
 
 
     def write_hardware(self, hardware_metrics: HardwareMetrics):
@@ -89,8 +97,6 @@ class PrometheusExporter:
 
         # Fans
         for fan in motherboard.fans.values():
-            print(fan)
-
             if fan.rpm is not None:
                 lines = self._gauge(
                     lines, seen,
