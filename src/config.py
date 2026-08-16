@@ -25,3 +25,6 @@ class Config:
 
         with open(config_file, "r", encoding="utf-8") as f:
             self.data = yaml.safe_load(f)
+
+        if not self.data:
+            raise ValueError(f"Configuration file is empty: {config_path}")
