@@ -122,3 +122,11 @@ class HardwareMetrics:
     gpu:            GpuHardware = field(default_factory=GpuHardware)
     memory:         MemoryHardware = field(default_factory=MemoryHardware)
     storage:        StorageHardware = field(default_factory=StorageHardware)
+
+
+@dataclass
+class ExporterHealth:
+    up:                             int = 0
+    scrape_duration_seconds:        float = 0.0
+    last_scrape_success_timestamp:  float = 0.0
+    scrape_errors_total:            float = 0.0

@@ -69,7 +69,7 @@ Coming Soon...
 - [x] Memory models
 - [x] Storage models
 - [x] `HardwareMetrics`
-- [ ] `ExporterHealth`
+- [x] `ExporterHealth`
 
 ### Ingest Pipeline
 - [x] Fetch LibreHardwareMonitor `/metrics`
