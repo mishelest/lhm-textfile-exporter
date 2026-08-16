@@ -73,7 +73,7 @@ Coming Soon...
 
 ### Ingest Pipeline
 - [x] Fetch LibreHardwareMonitor `/metrics`
-- [ ] Handle connection failures, invalid responses, empty responses
+- [x] Handle connection failures, invalid responses, empty responses
 - [x] Log connection errors
 - [x] Parse Prometheus text
 - [x] Parse metrics names, labels, values
@@ -91,9 +91,9 @@ Coming Soon...
 ### Export & run
 - [x] Prometheus textfile writer (`# HELP` / `# TYPE`, atomic write + Windows retry)
 - [x] Export all hardware metrics (`hardware_*`)
-- [ ] Exporter health metrics (`up`, scrape duration, last success, errors)
+- [x] Exporter health metrics (`up`, scrape duration, last success, errors)
 - [x] Service wiring (config + pipeline + logging setup)
-- [ ] Resilient scrape loop (keep last good samples; rewrite file with `up=0` on failure)
+- [x] Resilient scrape loop (keep last good samples; rewrite file with `up=0` on failure)
 - [x] `main.py` entrypoint
 - [ ] End-to-end verified run with LibreHardwareMonitor + `hardware.prom` updates
 

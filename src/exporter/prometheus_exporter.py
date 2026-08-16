@@ -5,6 +5,7 @@ from pathlib import Path
 
 from src.models import (
     HardwareMetrics,
+    ExporterHealth,
     MotherboardHardware,
     CpuHardware,
     GpuHardware,
@@ -28,9 +29,10 @@ class PrometheusExporter:
 
 
 
-    def write(self, hardware_metrics: HardwareMetrics):
+    def write(self, hardware_metrics: HardwareMetrics, health: ExporterHealth):
 
         lines = self.write_hardware(hardware_metrics)
+        lines = self._write_health(lines, health)
 
         self.output_dir.mkdir(parents=True, exist_ok=True)
 
@@ -74,6 +76,35 @@ class PrometheusExporter:
         return lines
 
 
+    def _write_health(self, lines: list[str], health: ExporterHealth) -> list[str]:
+        seen: set[str] = set()
+
+        lines = self._gauge(
+            lines, seen,
+            "hardware_exporter_up",
+            "1 if the last LibreHardwareMonitor scrape succeeded, else 0",
+            float(health.up),
+        )
+        lines = self._gauge(
+            lines, seen,
+            "hardware_exporter_scrape_duration_seconds",
+            "Duration of the last scrape attempt in seconds",
+            health.scrape_duration_seconds,
+        )
+        lines = self._gauge(
+            lines, seen,
+            "hardware_exporter_last_scrape_success_timestamp",
+            "Unix timestamp of the last successful scrape",
+            health.last_scrape_success_timestamp,
+        )
+        lines = self._gauge(
+            lines, seen,
+            "hardware_exporter_scrape_errors_total",
+            "Total scrape errors since process start",
+            health.scrape_errors_total,
+        )
+
+        return lines
 
 
     def _gauge(

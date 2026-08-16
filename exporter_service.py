@@ -249,8 +249,13 @@ class ExporterService:
                 if not self._logged_stale_write:
                     logger.warning("Writing last successful samples after scrape failure")
                     self._logged_stale_write = True
+                metrics_to_write = self._last_metrics
+            elif up == 0:
+                self._logged_stale_write = False
+                metrics_to_write = HardwareMetrics()
             else:
                 self._logged_stale_write = False
+                metrics_to_write = self._last_metrics
 
             logger.debug(
                 "Health up=%s duration=%.3fs errors_total=%s",
@@ -261,7 +266,7 @@ class ExporterService:
 
             # try to write prometheus file
             try:
-                self.exporter.write(self._last_metrics)
+                self.exporter.write(metrics_to_write, health)
                 if self._consecutive_write_errors:
                     logger.info(
                         "Prometheus textfile write recovered after %d error(s)",
@@ -275,9 +280,15 @@ class ExporterService:
                 self._consecutive_write_errors += 1
                 n = self._consecutive_write_errors
                 if n == 1:
+                    if up:
+                        write_context = "ok"
+                    elif self._last_scrape_success_timestamp:
+                        write_context = "failed; writing last samples"
+                    else:
+                        write_context = "failed; health only (up=0)"
                     logger.exception(
                         "Failed to write Prometheus textfile (scrape %s)",
-                        "ok" if up else "failed; writing last samples if any",
+                        write_context,
                     )
                 elif self._should_log_repeat(n):
                     logger.exception(
