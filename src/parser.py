@@ -29,6 +29,8 @@ class LibreHardwareMonitorParser:
     def parse_metrics(self, lines) -> list[Metric]:
 
         metrics: list[Metric] = []
+        skipped_malformed = 0
+        skipped_empty = 0
 
         for line in lines:
             
@@ -41,7 +43,7 @@ class LibreHardwareMonitorParser:
             end = line.rfind("}")
 
             if start == -1 or end == -1 or end < start:
-                logger.debug("Skipping malformed metric line: %r", line[:200])
+                skipped_malformed += 1
                 continue
 
 
@@ -50,7 +52,7 @@ class LibreHardwareMonitorParser:
             value_str = line[end + 1 : ].strip()
 
             if not metric or not value_str:
-                logger.debug("Skipping metric line with empty name or value: %r", line[:200])
+                skipped_empty += 1
                 continue
 
 
@@ -75,7 +77,12 @@ class LibreHardwareMonitorParser:
                 )
             )
 
-        logger.debug("Parsed %d metrics", len(metrics))
+        logger.debug(
+            "Parsed %d metrics (skipped malformed=%d empty=%d)",
+            len(metrics),
+            skipped_malformed,
+            skipped_empty,
+        )
 
         return metrics
             

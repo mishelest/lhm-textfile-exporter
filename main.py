@@ -1,5 +1,5 @@
 import logging
-from exporter_service import ExporterService
+from exporter_service import ExporterService, LOG_FORMAT
 
 
 logger = logging.getLogger(__name__)
@@ -8,7 +8,7 @@ logger = logging.getLogger(__name__)
 def main():
     logging.basicConfig(
         level=logging.INFO,
-        format="%(asctime)s [%(levelname)s] %(name)s: %(message)s",
+        format=LOG_FORMAT,
     )
     try:
         service = ExporterService()

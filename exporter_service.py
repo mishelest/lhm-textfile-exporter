@@ -16,10 +16,14 @@ from src.exporter.prometheus_exporter import PrometheusExporter
 
 logger = logging.getLogger(__name__)
 
+LOG_FORMAT = "%(asctime)s [%(levelname)s] %(name)s: %(message)s"
+
+
 class ExporterService:
 
     def __init__(self):
 
+        self._ensure_fallback_logging()
         self.config = Config()
 
         # setup logging
@@ -43,10 +47,14 @@ class ExporterService:
         )
 
         self.interval = exporter_cfg["scrape_interval_seconds"]
+        self._error_log_every = max(1, 60 // max(1, int(self.interval)))
         self._last_metrics = HardwareMetrics()
         self._scrape_errors_total = 0
         self._last_scrape_success_timestamp = 0.0
         self._logged_first_success = False
+        self._consecutive_scrape_errors = 0
+        self._consecutive_write_errors = 0
+        self._logged_stale_write = False
 
 
         logger.info("Config loaded")
@@ -61,14 +69,22 @@ class ExporterService:
         logger.info(
             "Logging level=%s file=%s",
             logging.getLevelName(logging.getLogger().level),
-            logging_cfg.get("file", "logs/exporter.log"),
+            self._log_file,
         )
 
 
 
+    @staticmethod
+    def _ensure_fallback_logging() -> None:
+        root = logging.getLogger()
+        if root.handlers:
+            return
+        logging.basicConfig(level=logging.INFO, format=LOG_FORMAT)
+
+
     def _setup_logging(self, cfg: dict) -> None:
 
-        level_name = cfg.get("level", "INFO").upper()
+        level_name = str(cfg.get("level", "INFO")).upper()
         valid_levels = {
             "CRITICAL": logging.CRITICAL,
             "ERROR": logging.ERROR,
@@ -83,12 +99,14 @@ class ExporterService:
         else:
             level = valid_levels[level_name]
 
-        log_file = Path(cfg.get("file", "logs/exporter.log"))
+        log_file = Path(str(cfg.get("file", "logs/exporter.log")))
+        if not log_file.is_absolute():
+            log_file = Path.cwd() / log_file
+        log_file = log_file.resolve()
         log_file.parent.mkdir(parents=True, exist_ok=True)
+        self._log_file = log_file
 
-        fmt = logging.Formatter(
-            "%(asctime)s [%(levelname)s] %(name)s: %(message)s"
-        )
+        fmt = logging.Formatter(LOG_FORMAT)
 
         root = logging.getLogger()
         root.setLevel(level)
@@ -104,9 +122,54 @@ class ExporterService:
         file_handler.setFormatter(fmt)
         root.addHandler(file_handler)
 
+        logging.getLogger("urllib3").setLevel(logging.WARNING)
+        logging.getLogger("requests").setLevel(logging.WARNING)
+
         if invalid_level:
             logger.warning("Invalid logging level %r, using INFO", invalid_level)
 
+
+
+    def _should_log_repeat(self, consecutive: int) -> bool:
+        return consecutive == 1 or consecutive % self._error_log_every == 0
+
+
+    def _note_scrape_failure(self) -> int:
+        self._scrape_errors_total += 1
+        self._consecutive_scrape_errors += 1
+        return self._consecutive_scrape_errors
+
+
+    def _log_scrape_error(self, message: str, *args) -> None:
+        n = self._note_scrape_failure()
+        if n == 1:
+            logger.error(message, *args)
+        elif self._should_log_repeat(n):
+            formatted = message % args if args else message
+            logger.error(
+                "LibreHardwareMonitor still failing (%d consecutive errors): %s",
+                n,
+                formatted,
+            )
+
+
+    def _log_scrape_success(self, started: float, parsed_count: int, group_count: int) -> None:
+        if self._consecutive_scrape_errors:
+            logger.info(
+                "LibreHardwareMonitor scrape recovered after %d error(s)",
+                self._consecutive_scrape_errors,
+            )
+            self._consecutive_scrape_errors = 0
+        elif not self._logged_first_success:
+            logger.info("LibreHardwareMonitor scrape succeeded")
+        self._logged_first_success = True
+
+        logger.debug(
+            "Scrape ok in %.3fs (parsed=%d, groups=%d)",
+            time.time() - started,
+            parsed_count,
+            group_count,
+        )
 
 
     def run(self):
@@ -137,46 +200,42 @@ class ExporterService:
                 self._last_scrape_success_timestamp = time.time()
                 up = 1
 
-                if not self._logged_first_success:
-                    logger.info("LibreHardwareMonitor scrape succeeded")
-                    self._logged_first_success = True
-
-                logger.debug(
-                    "Scrape ok in %.3fs (parsed=%d, groups=%d)",
-                    time.time() - started,
+                self._log_scrape_success(
+                    started,
                     len(parsed_metrics),
                     len(grouped_metrics),
                 )
 
             except requests.exceptions.ConnectionError:
-                self._scrape_errors_total += 1
-                logger.error(
+                self._log_scrape_error(
                     "LibreHardwareMonitor is unreachable at %s",
                     self.parser.url,
                 )
 
             except requests.exceptions.Timeout:
-                self._scrape_errors_total += 1
-                logger.error(
+                self._log_scrape_error(
                     "LibreHardwareMonitor timeout at %s",
                     self.parser.url,
                 )
 
             except requests.exceptions.HTTPError as e:
-                self._scrape_errors_total += 1
-                logger.error("LibreHardwareMonitor HTTP error: %s", e)
+                self._log_scrape_error("LibreHardwareMonitor HTTP error: %s", e)
 
             except requests.exceptions.RequestException as e:
-                self._scrape_errors_total += 1
-                logger.error("LibreHardwareMonitor request failed: %s", e)
+                self._log_scrape_error("LibreHardwareMonitor request failed: %s", e)
 
             except ValueError as e:
-                self._scrape_errors_total += 1
-                logger.error("Invalid LibreHardwareMonitor payload: %s", e)
+                self._log_scrape_error("Invalid LibreHardwareMonitor payload: %s", e)
 
             except Exception:
-                self._scrape_errors_total += 1
-                logger.exception("Scrape iteration failed")
+                n = self._note_scrape_failure()
+                if n == 1:
+                    logger.exception("Scrape iteration failed")
+                elif self._should_log_repeat(n):
+                    logger.exception(
+                        "Scrape iteration still failing (%d consecutive errors)",
+                        n,
+                    )
 
 
             health = ExporterHealth(
@@ -187,7 +246,11 @@ class ExporterService:
             )
 
             if up == 0 and self._last_scrape_success_timestamp:
-                logger.warning("Writing last successful samples (up=0)")
+                if not self._logged_stale_write:
+                    logger.warning("Writing last successful samples after scrape failure")
+                    self._logged_stale_write = True
+            else:
+                self._logged_stale_write = False
 
             logger.debug(
                 "Health up=%s duration=%.3fs errors_total=%s",
@@ -199,10 +262,28 @@ class ExporterService:
             # try to write prometheus file
             try:
                 self.exporter.write(self._last_metrics)
-                logger.debug("Wrote Prometheus file")
+                if self._consecutive_write_errors:
+                    logger.info(
+                        "Prometheus textfile write recovered after %d error(s)",
+                        self._consecutive_write_errors,
+                    )
+                    self._consecutive_write_errors = 0
+                else:
+                    logger.debug("Wrote Prometheus textfile")
 
             except Exception:
-                logger.exception("Failed to write prometheus file")
+                self._consecutive_write_errors += 1
+                n = self._consecutive_write_errors
+                if n == 1:
+                    logger.exception(
+                        "Failed to write Prometheus textfile (scrape %s)",
+                        "ok" if up else "failed; writing last samples if any",
+                    )
+                elif self._should_log_repeat(n):
+                    logger.exception(
+                        "Prometheus textfile write still failing (%d consecutive errors)",
+                        n,
+                    )
 
 
             time.sleep(self.interval)

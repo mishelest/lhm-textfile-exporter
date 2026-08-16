@@ -10,6 +10,36 @@ logger = logging.getLogger(__name__)
 
 class Normalizer:
 
+    def __init__(self):
+        self._empty_group_warned: set[str] = set()
+        self._unknown_logged: set[str] = set()
+
+
+    def _log_unknown_once(self, source: str, metric_name: str, sensor_name: str | None) -> None:
+        key = f"{source}|{metric_name}|{sensor_name}"
+        if key in self._unknown_logged:
+            return
+        self._unknown_logged.add(key)
+        logger.debug(
+            "Unknown sensor (once): %s name=%s sensor=%s",
+            source,
+            metric_name,
+            sensor_name,
+        )
+
+
+    def _warn_empty_group(self, group: str, had_input: bool, has_output: bool) -> None:
+        if not had_input:
+            return
+        if not has_output:
+            if group not in self._empty_group_warned:
+                logger.warning("No %s metrics after normalize", group)
+                self._empty_group_warned.add(group)
+        elif group in self._empty_group_warned:
+            logger.info("%s metrics present after normalize", group)
+            self._empty_group_warned.discard(group)
+
+
     def normalize(self, metrics: dict[str, list[Metric]]) -> HardwareMetrics:
 
         hardware_metrics = HardwareMetrics()
@@ -20,24 +50,36 @@ class Normalizer:
         hardware_metrics.gpu = self._normalize_gpu_nvidia(metrics.get("gpunvidia", []))
         hardware_metrics.storage = self._normalize_storage(metrics.get("storage", []))
 
-        if metrics.get("motherboard") and not (
-            hardware_metrics.motherboard.fans
-            or hardware_metrics.motherboard.temperature
-            or hardware_metrics.motherboard.voltage
-        ):
-            logger.warning("No motherboard metrics after normalize")
-        if metrics.get("cpu") and not hardware_metrics.cpu.cores and hardware_metrics.cpu.package_temp is None:
-            logger.warning("No CPU metrics after normalize")
-        if metrics.get("gpunvidia") and hardware_metrics.gpu.core_temp is None:
-            logger.warning("No NVIDIA GPU metrics after normalize")
-        if metrics.get("storage") and not hardware_metrics.storage.devices:
-            logger.warning("No storage metrics after normalize")
-        if (
-            metrics.get("memory")
-            and hardware_metrics.memory.load is None
-            and hardware_metrics.memory.used is None
-        ):
-            logger.warning("No memory metrics after normalize")
+        self._warn_empty_group(
+            "motherboard",
+            bool(metrics.get("motherboard")),
+            bool(
+                hardware_metrics.motherboard.fans
+                or hardware_metrics.motherboard.temperature
+                or hardware_metrics.motherboard.voltage
+            ),
+        )
+        self._warn_empty_group(
+            "CPU",
+            bool(metrics.get("cpu")),
+            bool(hardware_metrics.cpu.cores) or hardware_metrics.cpu.package_temp is not None,
+        )
+        self._warn_empty_group(
+            "NVIDIA GPU",
+            bool(metrics.get("gpunvidia")),
+            hardware_metrics.gpu.core_temp is not None,
+        )
+        self._warn_empty_group(
+            "storage",
+            bool(metrics.get("storage")),
+            bool(hardware_metrics.storage.devices),
+        )
+        self._warn_empty_group(
+            "memory",
+            bool(metrics.get("memory")),
+            hardware_metrics.memory.load is not None
+            or hardware_metrics.memory.used is not None,
+        )
 
         logger.debug(
             "Normalized cpu_cores=%d mb_fans=%d gpu_fans=%d dimms=%d disks=%d",
@@ -61,6 +103,7 @@ class Normalizer:
 
             parts = metric.name.split("_")
             if len(parts) < 3:
+                self._log_unknown_once("cpu", metric.name, metric.labels.get("sensorName"))
                 continue
 
             metric_type = parts[2]
@@ -68,6 +111,7 @@ class Normalizer:
 
             sensor_name = metric.labels.get("sensorName")
             if sensor_name is None:
+                self._log_unknown_once("cpu", metric.name, None)
                 continue
 
             sensor_parts = sensor_name.split(" ")
@@ -78,6 +122,7 @@ class Normalizer:
                 case "voltage":
                     core_index = self._get_core_index(sensor_name, 1)
                     if core_index is None:
+                        self._log_unknown_once("cpu", metric.name, sensor_name)
                         continue
 
                     core = self._get_core(core_index, cpu)
@@ -92,10 +137,14 @@ class Normalizer:
                     elif sensor_name.startswith("Core "):
                         core_index = self._get_core_index(sensor_name, 1)
                         if core_index is None:
+                            self._log_unknown_once("cpu", metric.name, sensor_name)
                             continue
 
                         core = self._get_core(core_index, cpu)
                         core.power = value
+
+                    else:
+                        self._log_unknown_once("cpu", metric.name, sensor_name)
 
 
                 # -- Clock Speed -- #
@@ -112,6 +161,7 @@ class Normalizer:
                     else:
                         core_index = self._get_core_index(sensor_name, 1)
                         if core_index is None:
+                            self._log_unknown_once("cpu", metric.name, sensor_name)
                             continue
 
                         core = self._get_core(core_index, cpu)
@@ -129,6 +179,9 @@ class Normalizer:
                     elif sensor_name.startswith("CCD"):
                         cpu.ccd_temp = value
 
+                    else:
+                        self._log_unknown_once("cpu", metric.name, sensor_name)
+
 
                 # -- Load -- #
                 case "load":
@@ -141,10 +194,17 @@ class Normalizer:
                     elif sensor_name.startswith("CPU Core"):
                         core_index = self._get_core_index(sensor_name, 2)
                         if core_index is None:
+                            self._log_unknown_once("cpu", metric.name, sensor_name)
                             continue
 
                         core = self._get_core(core_index, cpu)
                         core.load = value
+
+                    else:
+                        self._log_unknown_once("cpu", metric.name, sensor_name)
+
+                case _:
+                    self._log_unknown_once("cpu", metric.name, sensor_name)
 
         return cpu
 
@@ -157,6 +217,7 @@ class Normalizer:
 
             sensor_name = metric.labels.get("sensorName")
             if sensor_name is None:
+                self._log_unknown_once("motherboard", metric.name, None)
                 continue
 
             value = metric.value
@@ -168,6 +229,7 @@ class Normalizer:
 
                     fan_index = self._get_fan_index(sensor_name, 1)
                     if fan_index is None:
+                        self._log_unknown_once("motherboard", metric.name, sensor_name)
                         continue
 
                     fan = self._get_fan_motherboard(fan_index, motherboard)
@@ -179,6 +241,7 @@ class Normalizer:
 
                     fan_index = self._get_fan_index(sensor_name, 1)
                     if fan_index is None:
+                        self._log_unknown_once("motherboard", metric.name, sensor_name)
                         continue
 
                     fan = self._get_fan_motherboard(fan_index, motherboard)
@@ -194,6 +257,9 @@ class Normalizer:
                 case "lhm_motherboard_voltage_volts":
                     motherboard.voltage[sensor_name] = value
 
+                case _:
+                    self._log_unknown_once("motherboard", metric.name, sensor_name)
+
         return motherboard
 
 
@@ -205,6 +271,7 @@ class Normalizer:
             sensor_name = metric.labels.get("sensorName")
             hardware_name = metric.labels.get("hardwareName")
             if sensor_name is None or hardware_name is None:
+                self._log_unknown_once("memory", metric.name, sensor_name)
                 continue
 
             value = metric.value
@@ -217,6 +284,8 @@ class Normalizer:
                         memory.load = value
                     elif hardware_name == "Virtual Memory":
                         memory.virtual_load = value
+                    else:
+                        self._log_unknown_once("memory", metric.name, sensor_name)
 
 
                 # -- Bytes Usage -- #
@@ -226,18 +295,30 @@ class Normalizer:
                             memory.used = value
                         elif sensor_name == "Memory Available":
                             memory.available = value
+                        else:
+                            self._log_unknown_once("memory", metric.name, sensor_name)
 
                     elif hardware_name == "Virtual Memory":
                         if sensor_name == "Memory Used":
                             memory.virtual_used = value
                         elif sensor_name == "Memory Available":
                             memory.virtual_available = value
+                        else:
+                            self._log_unknown_once("memory", metric.name, sensor_name)
+
+                    else:
+                        self._log_unknown_once("memory", metric.name, sensor_name)
 
 
                 # -- DIMM Temperature -- #
                 case "lhm_memory_temperature_celsius":
                     if sensor_name.startswith("DIMM"):
                         memory.dimms[sensor_name] = value
+                    else:
+                        self._log_unknown_once("memory", metric.name, sensor_name)
+
+                case _:
+                    self._log_unknown_once("memory", metric.name, sensor_name)
 
         return memory
 
@@ -249,6 +330,7 @@ class Normalizer:
 
             sensor_name = metric.labels.get("sensorName")
             if sensor_name is None:
+                self._log_unknown_once("gpunvidia", metric.name, None)
                 continue
 
             value = metric.value
@@ -261,6 +343,8 @@ class Normalizer:
                         gpu.core_temp = value
                     elif sensor_name == "GPU Memory Junction":
                         gpu.memory_junction_temp = value
+                    else:
+                        self._log_unknown_once("gpunvidia", metric.name, sensor_name)
 
 
                 # -- Load (%) -- #
@@ -273,12 +357,16 @@ class Normalizer:
                         gpu.memory_controller_load = value
                     elif sensor_name == "D3D 3D":
                         gpu.d3d_3d_load = value
+                    else:
+                        self._log_unknown_once("gpunvidia", metric.name, sensor_name)
 
 
                 # -- Power -- #
                 case "lhm_gpunvidia_power_watts":
                     if sensor_name == "GPU Package":
                         gpu.power = value
+                    else:
+                        self._log_unknown_once("gpunvidia", metric.name, sensor_name)
 
 
                 # -- Clock Speed -- #
@@ -287,6 +375,8 @@ class Normalizer:
                         gpu.core_clock = value
                     elif sensor_name == "GPU Memory":
                         gpu.memory_clock = value
+                    else:
+                        self._log_unknown_once("gpunvidia", metric.name, sensor_name)
 
 
                 # -- Bytes Usage -- #
@@ -302,6 +392,8 @@ class Normalizer:
                         gpu.d3d_dedicated_memory_used = value
                     elif sensor_name == "D3D Shared Memory Used":
                         gpu.d3d_shared_memory_used = value
+                    else:
+                        self._log_unknown_once("gpunvidia", metric.name, sensor_name)
 
 
                 # -- Throughput -- #
@@ -310,12 +402,15 @@ class Normalizer:
                         gpu.pcie_rx = value
                     elif sensor_name == "GPU PCIe Tx":
                         gpu.pcie_tx = value
+                    else:
+                        self._log_unknown_once("gpunvidia", metric.name, sensor_name)
 
 
                 # -- Fan RPM -- #
                 case "lhm_gpunvidia_fan_rpm":
                     fan_index = self._get_fan_index(sensor_name, 2)
                     if fan_index is None:
+                        self._log_unknown_once("gpunvidia", metric.name, sensor_name)
                         continue
 
                     fan = self._get_fan_gpu(fan_index, gpu)
@@ -326,10 +421,14 @@ class Normalizer:
                 case "lhm_gpunvidia_control_percent":
                     fan_index = self._get_core_index(sensor_name, 2)
                     if fan_index is None:
+                        self._log_unknown_once("gpunvidia", metric.name, sensor_name)
                         continue
 
                     fan = self._get_fan_gpu(fan_index, gpu)
                     fan.control = value
+
+                case _:
+                    self._log_unknown_once("gpunvidia", metric.name, sensor_name)
 
         return gpu
 
@@ -344,6 +443,7 @@ class Normalizer:
             hardware_name = metric.labels.get("hardwareName")
 
             if sensor_name is None or hardware_name is None or hardware_id is None:
+                self._log_unknown_once("storage", metric.name, sensor_name)
                 continue
 
             value = metric.value
@@ -355,6 +455,8 @@ class Normalizer:
                 case "lhm_storage_temperature_celsius":
                     if sensor_name in ("Composite Temperature", "Temperature"):
                         device.temperature = value
+                    else:
+                        self._log_unknown_once("storage", metric.name, sensor_name)
 
                 
                 case "lhm_storage_load_percent":
@@ -366,11 +468,15 @@ class Normalizer:
                         device.write_activity = value
                     elif sensor_name == "Total Activity":
                         device.total_activity = value
+                    else:
+                        self._log_unknown_once("storage", metric.name, sensor_name)
 
 
                 case "lhm_storage_data_bytes":
                     if sensor_name == "Free Space":
                         device.free_space = value
+                    else:
+                        self._log_unknown_once("storage", metric.name, sensor_name)
 
 
                 case "lhm_storage_throughput_bytes_per_second":
@@ -378,6 +484,8 @@ class Normalizer:
                         device.read_rate = value
                     elif sensor_name == "Write Rate":
                         device.write_rate = value
+                    else:
+                        self._log_unknown_once("storage", metric.name, sensor_name)
 
 
                 case "lhm_storage_level_percent":
@@ -387,6 +495,11 @@ class Normalizer:
                         device.percentage_used = value
                     elif sensor_name == "Available Spare":
                         device.available_spare = value
+                    else:
+                        self._log_unknown_once("storage", metric.name, sensor_name)
+
+                case _:
+                    self._log_unknown_once("storage", metric.name, sensor_name)
 
         return storage
 
