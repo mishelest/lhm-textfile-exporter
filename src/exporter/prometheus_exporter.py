@@ -1,5 +1,6 @@
 import os
 import time
+import logging
 from pathlib import Path
 
 from src.models import (
@@ -11,6 +12,8 @@ from src.models import (
     StorageHardware,
 )
 
+
+logger = logging.getLogger(__name__)
 
 class PrometheusExporter:
 
@@ -39,12 +42,20 @@ class PrometheusExporter:
             f.write("\n")
 
 
-        for _ in range(5):
+        replaced = False
+        for attempt in range(1, 6):
             try:
                 os.replace(output_path, target)
+                replaced = True
                 break
             except PermissionError:
+                logger.debug("Replace busy, retry %d/5: %s", attempt, target)
                 time.sleep(0.1)
+
+        if not replaced:
+            raise OSError(f"Could not replace {target} after 5 retries")
+
+        logger.debug("Atomically wrote %s (%d lines)", target, len(lines))
 
 
 
