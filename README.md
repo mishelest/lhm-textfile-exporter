@@ -99,13 +99,13 @@ Coming Soon...
 
 ### Logging
 #### Console Logging
-- [ ] Startup information
-- [ ] Configuration information
-- [ ] Errors and warnings
+- [x] Startup information
+- [x] Configuration information
+- [x] Errors and warnings
 
 #### File Logging
-- [ ] File logging
-- [ ] Error logging
+- [x] File logging
+- [x] Error logging
 
 ### Docs before release
 - [ ] Sensor inventory (`docs/sensor-inventory.md`)
