@@ -1,10 +1,12 @@
+import logging
+
 from src.models import (
     Metric, HardwareMetrics, FanHardware, CpuCore,
     CpuHardware, MotherboardHardware, GpuHardware,
     MemoryHardware, StorageDevice, StorageHardware
 )
 
-
+logger = logging.getLogger(__name__)
 
 class Normalizer:
 
@@ -17,6 +19,26 @@ class Normalizer:
         hardware_metrics.memory = self._normalize_memory(metrics.get("memory", []))
         hardware_metrics.gpu = self._normalize_gpu_nvidia(metrics.get("gpunvidia", []))
         hardware_metrics.storage = self._normalize_storage(metrics.get("storage", []))
+
+        if metrics.get("motherboard") and not hardware_metrics.motherboard.temperature:
+            logger.warning("No motherboard metrics after normalize")
+        if metrics.get("cpu") and not hardware_metrics.cpu.cores and hardware_metrics.cpu.package_temp is None:
+            logger.warning("No CPU metrics after normalize")
+        if metrics.get("gpunvidia") and hardware_metrics.gpu.core_temp is None:
+            logger.warning("No NVIDIA GPU metrics after normalize")
+        if metrics.get("storage") and not hardware_metrics.storage.devices:
+            logger.warning("No storage metrics after normalize")
+        if metrics.get("memory") and not hardware_metrics.memory.dimms:
+            logger.warning("No memory metrics after normalize")
+
+        logger.debug(
+            "Normalized cpu_cores=%d mb_fans=%d gpu_fans=%d dimms=%d disks=%d",
+            len(hardware_metrics.cpu.cores),
+            len(hardware_metrics.motherboard.fans),
+            len(hardware_metrics.gpu.fans),
+            len(hardware_metrics.memory.dimms),
+            len(hardware_metrics.storage.devices),
+        )
 
         return hardware_metrics
 
