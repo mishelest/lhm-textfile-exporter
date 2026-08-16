@@ -74,7 +74,7 @@ Coming Soon...
 ### Ingest Pipeline
 - [x] Fetch LibreHardwareMonitor `/metrics`
 - [ ] Handle connection failures, invalid responses, empty responses
-- [ ] Log connection errors
+- [x] Log connection errors
 - [x] Parse Prometheus text
 - [x] Parse metrics names, labels, values
 - [x] Handle unknown metrics - skip

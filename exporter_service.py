@@ -45,6 +45,7 @@ class ExporterService:
         self._last_metrics = HardwareMetrics()
         self._scrape_errors_total = 0
         self._last_scrape_success_timestamp = 0.0
+        self._logged_first_success = False
 
 
         logger.info("Config loaded")
@@ -136,7 +137,12 @@ class ExporterService:
                 self._last_scrape_success_timestamp = time.time()
                 up = 1
 
-                logger.debug("Scrape success")
+                logger.debug(
+                    "Scrape ok in %.3fs (parsed=%d, groups=%d)",
+                    time.time() - started,
+                    len(parsed_metrics),
+                    len(grouped_metrics),
+                )
 
             except requests.exceptions.ConnectionError:
                 self._scrape_errors_total += 1
@@ -162,7 +168,7 @@ class ExporterService:
 
             except ValueError as e:
                 self._scrape_errors_total += 1
-                logger.error("%s", e)
+                logger.error("Invalid LibreHardwareMonitor payload: %s", e)
 
             except Exception:
                 self._scrape_errors_total += 1
@@ -176,10 +182,17 @@ class ExporterService:
                 scrape_errors_total = float(self._scrape_errors_total),
             )
 
+            logger.debug(
+                "Health up=%s duration=%.3fs errors_total=%s",
+                health.up,
+                health.scrape_duration_seconds,
+                health.scrape_errors_total,
+            )
 
             # try to write prometheus file
             try:
                 self.exporter.write(self._last_metrics)
+                logger.debug("Wrote Prometheus file")
 
             except Exception:
                 logger.exception("Failed to write prometheus file")
