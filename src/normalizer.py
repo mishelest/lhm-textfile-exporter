@@ -20,7 +20,11 @@ class Normalizer:
         hardware_metrics.gpu = self._normalize_gpu_nvidia(metrics.get("gpunvidia", []))
         hardware_metrics.storage = self._normalize_storage(metrics.get("storage", []))
 
-        if metrics.get("motherboard") and not hardware_metrics.motherboard.temperature:
+        if metrics.get("motherboard") and not (
+            hardware_metrics.motherboard.fans
+            or hardware_metrics.motherboard.temperature
+            or hardware_metrics.motherboard.voltage
+        ):
             logger.warning("No motherboard metrics after normalize")
         if metrics.get("cpu") and not hardware_metrics.cpu.cores and hardware_metrics.cpu.package_temp is None:
             logger.warning("No CPU metrics after normalize")
@@ -28,7 +32,7 @@ class Normalizer:
             logger.warning("No NVIDIA GPU metrics after normalize")
         if metrics.get("storage") and not hardware_metrics.storage.devices:
             logger.warning("No storage metrics after normalize")
-        if metrics.get("memory") and not hardware_metrics.memory.dimms:
+        if metrics.get("memory") and not hardware_metrics.memory.load is None and hardware_metrics.memory.used is None:
             logger.warning("No memory metrics after normalize")
 
         logger.debug(
