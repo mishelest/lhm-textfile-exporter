@@ -1,6 +1,4 @@
 import logging
-
-from src import __version__
 from exporter_service import ExporterService
 
 
@@ -8,15 +6,12 @@ logger = logging.getLogger(__name__)
 
 
 def main():
-    service = ExporterService()
-
-    logger.info("lhmTF-exporter %s starting", __version__)
-
     try:
+        service = ExporterService()
         service.run()
 
     except KeyboardInterrupt:
-        logger.info("Shutting Down")
+        logger.info("Shutting down")
 
     except Exception:
         logger.exception("Fatal error")
