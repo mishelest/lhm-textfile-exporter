@@ -23,7 +23,8 @@ class ExporterService:
         self.config = Config()
 
         # setup logging
-        self._setup_logging(self.config.data["logging"])
+        logging_cfg = self.config.data.get("logging") or {}
+        self._setup_logging(logging_cfg)
         if self.config.created_from_default:
             logger.info("Created config.yaml from config.default.yaml")
 
@@ -59,8 +60,8 @@ class ExporterService:
 
         logger.info(
             "Logging level=%s file=%s",
-            self.config.data["logging"].get("level", "INFO"),
-            self.config.data["logging"].get("file", "logs/exporter.log")
+            logging.getLevelName(logging.getLogger().level),
+            logging_cfg.get("file", "logs/exporter.log"),
         )
 
 

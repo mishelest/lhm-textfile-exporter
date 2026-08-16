@@ -32,7 +32,11 @@ class Normalizer:
             logger.warning("No NVIDIA GPU metrics after normalize")
         if metrics.get("storage") and not hardware_metrics.storage.devices:
             logger.warning("No storage metrics after normalize")
-        if metrics.get("memory") and not hardware_metrics.memory.load is None and hardware_metrics.memory.used is None:
+        if (
+            metrics.get("memory")
+            and hardware_metrics.memory.load is None
+            and hardware_metrics.memory.used is None
+        ):
             logger.warning("No memory metrics after normalize")
 
         logger.debug(

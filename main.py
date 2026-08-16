@@ -6,6 +6,10 @@ logger = logging.getLogger(__name__)
 
 
 def main():
+    logging.basicConfig(
+        level=logging.INFO,
+        format="%(asctime)s [%(levelname)s] %(name)s: %(message)s",
+    )
     try:
         service = ExporterService()
         service.run()
