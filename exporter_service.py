@@ -3,6 +3,8 @@ import requests
 import logging
 from pathlib import Path
 
+from src import __version__
+
 from src.config import Config
 from src.models import HardwareMetrics, ExporterHealth
 
@@ -24,6 +26,9 @@ class ExporterService:
         self._setup_logging(self.config.data["logging"])
         if self.config.created_from_default:
             logger.info("Created config.yaml from config.default.yaml")
+
+
+        logger.info("lhmTF-exporter %s starting", __version__)
 
         # get exporter configurations
         exporter_cfg = self.config.data["exporter"]
@@ -62,6 +67,20 @@ class ExporterService:
     def _setup_logging(self, cfg: dict) -> None:
 
         level_name = cfg.get("level", "INFO").upper()
+        valid_levels = {
+            "CRITICAL": logging.CRITICAL,
+            "ERROR": logging.ERROR,
+            "WARNING": logging.WARNING,
+            "INFO": logging.INFO,
+            "DEBUG": logging.DEBUG,
+        }
+        invalid_level = None
+        if level_name not in valid_levels:
+            invalid_level = level_name
+            level = logging.INFO
+        else:
+            level = valid_levels[level_name]
+
         level = getattr(logging, level_name, logging.INFO)
         log_file = Path(cfg.get("file", "logs/exporter.log"))
         log_file.parent.mkdir(parents=True, exist_ok=True)
@@ -83,6 +102,9 @@ class ExporterService:
         file_handler.setLevel(level)
         file_handler.setFormatter(fmt)
         root.addHandler(file_handler)
+
+        if invalid_level:
+            logger.warning("Invalid logging level %r, using INFO", invalid_level)
 
 
 
@@ -113,6 +135,8 @@ class ExporterService:
                 self._last_metrics = normalized_metrics
                 self._last_scrape_success_timestamp = time.time()
                 up = 1
+
+                logger.debug("Scrape success")
 
             except requests.exceptions.ConnectionError:
                 self._scrape_errors_total += 1
