@@ -1,7 +1,9 @@
 import shlex
 import requests
+import logging
 from src.models import Metric
 
+logger = logging.getLogger(__name__)
 
 class LibreHardwareMonitorParser:
 
@@ -17,8 +19,10 @@ class LibreHardwareMonitorParser:
 
         response.raise_for_status()
 
-        return response.text.splitlines()
+        lines = response.text.splitlines()
+        logger.debug("Fetched %d lines from %s", len(lines), self.url)
 
+        return lines
 
 
 
@@ -37,6 +41,7 @@ class LibreHardwareMonitorParser:
             end = line.rfind("}")
 
             if start == -1 or end == -1 or end < start:
+                logger.debug("Skipping malformed metric line: %r", line[:200])
                 continue
 
 
@@ -45,6 +50,7 @@ class LibreHardwareMonitorParser:
             value_str = line[end + 1 : ].strip()
 
             if not metric or not value_str:
+                logger.debug("Skipping metric line with empty name or value: %r", line[:200])
                 continue
 
 
@@ -68,6 +74,8 @@ class LibreHardwareMonitorParser:
                     value=value_str
                 )
             )
+
+        logger.debug("Parsed %d metrics", len(metrics))
 
         return metrics
             
