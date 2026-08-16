@@ -182,6 +182,9 @@ class ExporterService:
                 scrape_errors_total = float(self._scrape_errors_total),
             )
 
+            if up == 0 and self._last_scrape_success_timestamp:
+                logger.warning("Writing last succesful samples (up=0)")
+
             logger.debug(
                 "Health up=%s duration=%.3fs errors_total=%s",
                 health.up,
