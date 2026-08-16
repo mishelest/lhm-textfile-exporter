@@ -22,6 +22,8 @@ class ExporterService:
 
         # setup logging
         self._setup_logging(self.config.data["logging"])
+        if self.config.created_from_default:
+            logger.info("Created config.yaml from config.default.yaml")
 
         # get exporter configurations
         exporter_cfg = self.config.data["exporter"]
