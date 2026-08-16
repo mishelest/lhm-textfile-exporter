@@ -94,7 +94,7 @@ Coming Soon...
 - [ ] Exporter health metrics (`up`, scrape duration, last success, errors)
 - [x] Service wiring (config + pipeline + logging setup)
 - [ ] Resilient scrape loop (keep last good samples; rewrite file with `up=0` on failure)
-- [ ] `main.py` entrypoint
+- [x] `main.py` entrypoint
 - [ ] End-to-end verified run with LibreHardwareMonitor + `hardware.prom` updates
 
 ### Logging
