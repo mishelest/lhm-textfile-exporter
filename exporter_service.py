@@ -82,7 +82,6 @@ class ExporterService:
         else:
             level = valid_levels[level_name]
 
-        level = getattr(logging, level_name, logging.INFO)
         log_file = Path(cfg.get("file", "logs/exporter.log"))
         log_file.parent.mkdir(parents=True, exist_ok=True)
 
@@ -137,6 +136,10 @@ class ExporterService:
                 self._last_scrape_success_timestamp = time.time()
                 up = 1
 
+                if not self._logged_first_success:
+                    logger.info("LibreHardwareMonitor scrape succeeded")
+                    self._logged_first_success = True
+
                 logger.debug(
                     "Scrape ok in %.3fs (parsed=%d, groups=%d)",
                     time.time() - started,
@@ -183,7 +186,7 @@ class ExporterService:
             )
 
             if up == 0 and self._last_scrape_success_timestamp:
-                logger.warning("Writing last succesful samples (up=0)")
+                logger.warning("Writing last successful samples (up=0)")
 
             logger.debug(
                 "Health up=%s duration=%.3fs errors_total=%s",
