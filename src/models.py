@@ -4,7 +4,7 @@ from dataclasses import dataclass, field
 @dataclass(slots=True)
 class Metric:
     name:   str
-    value:  str
+    value:  float
     labels: dict
 
 @dataclass

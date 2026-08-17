@@ -48,7 +48,7 @@ class LibreHardwareMonitorParser:
 
             metric = line[:start].strip()
             labels_str = line[start + 1 : end]
-            value_str = line[end + 1 : ].strip()
+            value_str = float(line[end + 1 : ].strip())
 
             if not metric or not value_str:
                 skipped_empty += 1
