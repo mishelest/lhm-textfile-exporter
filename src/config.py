@@ -28,3 +28,17 @@ class Config:
 
         if not self.data:
             raise ValueError(f"Configuration file is empty: {config_path}")
+
+        
+        required = (
+            ("librehardwaremonitor", "url"),
+            ("exporter", "scrape_interval_seconds"),
+            ("exporter", "output_dir"),
+            ("exporter", "output_file"),
+        )
+
+        for section, key in required:
+            section_data = self.data.get(section) if isinstance(self.data, dict) else None
+
+            if not isinstance(section_data, dict) or section_data.get(key) is None:
+                raise ValueError(f"Missing required config key: {section}.{key}")
