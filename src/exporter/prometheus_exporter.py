@@ -124,13 +124,26 @@ class PrometheusExporter:
             seen.add(name)
 
         if labels:
-            label_str = ",".join(f'{key}="{val}"' for key, val in labels.items())
+            label_str = ",".join(
+                f'{key}="{self._escape_label_value(val)}"'
+                for key, val in labels.items()
+            )
             lines.append(f"{name}{{{label_str}}} {value}")
 
         else:
             lines.append(f"{name} {value}")
 
         return lines
+
+    
+    @staticmethod
+    def _escape_label_value(value: str) -> str:
+        return(
+            value
+            .replace("\\", "\\\\")
+            .replace("\n", "\\n")
+            .replace('"', '\\"')
+        )
 
 
 
@@ -147,7 +160,7 @@ class PrometheusExporter:
                     fan.rpm,
                     {"fan": str(fan.index)},
                 )
-
+        for fan in motherboard.fans.values():
             if fan.control is not None:
                 lines = self._gauge(
                     lines, seen,
