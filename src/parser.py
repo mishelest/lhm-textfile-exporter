@@ -1,4 +1,3 @@
-import shlex
 import requests
 import logging
 from src.models import Metric
