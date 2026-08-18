@@ -95,7 +95,7 @@ Coming Soon...
 - [x] Service wiring (config + pipeline + logging setup)
 - [x] Resilient scrape loop (keep last good samples; rewrite file with `up=0` on failure)
 - [x] `main.py` entrypoint
-- [ ] End-to-end verified run with LibreHardwareMonitor + `hardware.prom` updates
+- [x] End-to-end verified run with LibreHardwareMonitor + `hardware.prom` updates
 
 ### Logging
 #### Console Logging
