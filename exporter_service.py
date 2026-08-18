@@ -39,7 +39,7 @@ class ExporterService:
             logger.info("Created config.yaml from config.default.yaml")
 
 
-        logger.info("lhmTF-exporter %s starting", __version__)
+        logger.info("lhm-textfile-exporter %s starting", __version__)
 
         # get exporter configurations
         exporter_cfg = self.config.data["exporter"]
