@@ -32,49 +32,60 @@ class LibreHardwareMonitorParser:
         skipped_empty = 0
 
         for line in lines:
-            
-            line = line.strip()
+            try:
+                line = line.strip()
 
-            if not line or line.startswith("#"):
-                continue
-
-            start = line.find("{")
-            end = line.rfind("}")
-
-            if start == -1 or end == -1 or end < start:
-                skipped_malformed += 1
-                continue
-
-
-            metric = line[:start].strip()
-            labels_str = line[start + 1 : end]
-            value_str = float(line[end + 1 : ].strip())
-
-            if not metric or not value_str:
-                skipped_empty += 1
-                continue
-
-
-            labels: dict = {}
-
-            for label in labels_str.split(", "):
-                key, seperator, value = label.partition("=")
-
-                if not seperator:
+                if not line or line.startswith("#"):
                     continue
 
-                key = key.strip().strip('"')
-                value = value.strip().strip('"')
+                start = line.find("{")
+                end = line.rfind("}")
 
-                labels[key] = value
+                if start == -1 or end == -1 or end < start:
+                    skipped_malformed += 1
+                    continue
 
-            metrics.append(
-                Metric(
-                    name=metric,
-                    labels=labels,
-                    value=value_str
+                metric = line[:start].strip()
+                labels_str = line[start + 1 : end]
+                raw_value = line[end + 1 :].strip()
+
+                if not metric:
+                    skipped_empty += 1
+                    continue
+
+                if not raw_value:
+                    skipped_malformed += 1
+                    continue
+
+                value_token = raw_value.split(None, 1)[0]
+                try:
+                    value = float(value_token)
+                except ValueError:
+                    skipped_malformed += 1
+                    continue
+
+                labels: dict = {}
+
+                for label in labels_str.split(", "):
+                    key, seperator, label_value = label.partition("=")
+
+                    if not seperator:
+                        continue
+
+                    key = key.strip().strip('"')
+                    label_value = label_value.strip().strip('"')
+
+                    labels[key] = label_value
+
+                metrics.append(
+                    Metric(
+                        name=metric,
+                        labels=labels,
+                        value=value,
+                    )
                 )
-            )
+            except Exception:
+                skipped_malformed += 1
 
         logger.debug(
             "Parsed %d metrics (skipped malformed=%d empty=%d)",
