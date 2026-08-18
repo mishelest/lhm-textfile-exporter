@@ -108,7 +108,7 @@ Coming Soon...
 - [x] Error logging
 
 ### Docs before release
-- [ ] Sensor inventory (`docs/sensor-inventory.md`)
+- [x] Sensor inventory (`docs/sensor-inventory.md`)
 - [ ] Full README (quick start, verified setup, PromQL examples, code layout)
 
 
