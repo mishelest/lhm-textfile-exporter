@@ -5,7 +5,7 @@ from pathlib import Path
 
 from src import __version__
 
-from src.config import Config
+from src.config import Config, resolve_under
 from src.models import HardwareMetrics, ExporterHealth
 
 from src.parser import LibreHardwareMonitorParser
@@ -21,10 +21,16 @@ LOG_FORMAT = "%(asctime)s [%(levelname)s] %(name)s: %(message)s"
 
 class ExporterService:
 
-    def __init__(self):
+    def __init__(self, base_dir: Path | None = None):
+
+        self.base_dir = (
+            Path(base_dir).resolve()
+            if base_dir is not None
+            else Path(__file__).resolve().parent
+        )
 
         self._ensure_fallback_logging()
-        self.config = Config()
+        self.config = Config(base_dir=self.base_dir)
 
         # setup logging
         logging_cfg = self.config.data.get("logging") or {}
@@ -37,13 +43,17 @@ class ExporterService:
 
         # get exporter configurations
         exporter_cfg = self.config.data["exporter"]
+        output_dir = resolve_under(
+            self.base_dir,
+            exporter_cfg.get("output_dir", "textfile_inputs"),
+        )
 
         self.parser = LibreHardwareMonitorParser(self.config.data["librehardwaremonitor"]["url"])
         self.classifier = Classifier()
         self.normalizer = Normalizer()
         self.exporter = PrometheusExporter(
-            output_dir=exporter_cfg.get("output_dir", "textfile_inputs"),
-            output_file=exporter_cfg.get("output_file", "hardware.prom"),            
+            output_dir=output_dir,
+            output_file=exporter_cfg.get("output_file", "hardware.prom"),
         )
 
         self.interval = exporter_cfg["scrape_interval_seconds"]
@@ -58,12 +68,12 @@ class ExporterService:
 
 
         logger.info("Config loaded")
+        logger.info("Base directory: %s", self.base_dir)
         logger.info("LibreHardwareMonitor URL: %s", self.config.data["librehardwaremonitor"]["url"])
         logger.info("Scrape interval: %s seconds", self.interval)
         logger.info(
             "Output file: %s",
-            Path(exporter_cfg.get("output_dir", "textfile_inputs"))
-            / exporter_cfg.get("output_file", "hardware.prom"),
+            output_dir / exporter_cfg.get("output_file", "hardware.prom"),
         )
 
         logger.info(
@@ -99,10 +109,7 @@ class ExporterService:
         else:
             level = valid_levels[level_name]
 
-        log_file = Path(str(cfg.get("file", "logs/exporter.log")))
-        if not log_file.is_absolute():
-            log_file = Path.cwd() / log_file
-        log_file = log_file.resolve()
+        log_file = resolve_under(self.base_dir, str(cfg.get("file", "logs/exporter.log")))
         log_file.parent.mkdir(parents=True, exist_ok=True)
         self._log_file = log_file
 

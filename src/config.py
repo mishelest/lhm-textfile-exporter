@@ -3,21 +3,30 @@ import shutil
 import yaml
 
 
+def resolve_under(base_dir: Path, path: str | Path) -> Path:
+    candidate = Path(path)
+    if not candidate.is_absolute():
+        candidate = base_dir / candidate
+    return candidate.resolve()
+
+
 class Config:
     def __init__(
         self,
         config_path: str = "config.yaml",
-        default_path: str = "config.default.yaml"
+        default_path: str = "config.default.yaml",
+        base_dir: Path | None = None,
     ):
 
-        config_file = Path(config_path)
-        default_file = Path(default_path)
+        self.base_dir = Path(base_dir).resolve() if base_dir is not None else Path.cwd()
+        config_file = resolve_under(self.base_dir, config_path)
+        default_file = resolve_under(self.base_dir, default_path)
 
         self.created_from_default = False
 
         if not config_file.exists():
             if not default_file.exists():
-                raise FileNotFoundError(f"Default configuration file not found: {default_path}")
+                raise FileNotFoundError(f"Default configuration file not found: {default_file}")
 
             shutil.copy(default_file, config_file)
             self.created_from_default = True
@@ -27,7 +36,7 @@ class Config:
             self.data = yaml.safe_load(f)
 
         if not self.data:
-            raise ValueError(f"Configuration file is empty: {config_path}")
+            raise ValueError(f"Configuration file is empty: {config_file}")
 
         
         required = (

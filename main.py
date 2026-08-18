@@ -1,4 +1,6 @@
 import logging
+from pathlib import Path
+
 from exporter_service import ExporterService, LOG_FORMAT
 
 
@@ -11,7 +13,7 @@ def main():
         format=LOG_FORMAT,
     )
     try:
-        service = ExporterService()
+        service = ExporterService(base_dir=Path(__file__).resolve().parent)
         service.run()
 
     except KeyboardInterrupt:
