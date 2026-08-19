@@ -97,7 +97,7 @@ exporter:
 
 That path usually needs an elevated process, or an ACL that lets your user write there.
 
-Confirm the series on windows_exporter (default `http://127.0.0.1:8085/metrics`).
+Confirm the series on windows_exporter (default `http://127.0.0.1:9182/metrics`).
 You should see `hardware_cpu_package_temperature_celsius` and `hardware_exporter_up`.
 
 ### 4. Scrape with Prometheus
@@ -108,7 +108,7 @@ Scrape windows_exporter as usual. Do **not** scrape lhm-textfile-exporter direct
 scrape_configs:
   - job_name: windows
     static_configs:
-      - targets: ["windows-host:8085"]
+      - targets: ["windows-host:9182"]
 ```
 
 ## Configuration
@@ -176,6 +176,21 @@ hardware_storage_temperature_celsius
 hardware_storage_life_percent
 ```
 
+## Grafana
+
+A Grafana dashboard is included in [`docs/grafana/lhm_dashboard.json`](docs/grafana/lhm_dashboard.json).
+
+Import the JSON into Grafana and select the Prometheus data source that
+scrapes your `windows_exporter` instance.
+
+### Dashboard preview
+
+![Grafana Dashboard](docs/grafana/hardware_dashboard.png)
+
+
+
+
+
 ## Layout
 
 ```text
@@ -193,6 +208,9 @@ lhm-textfile-exporter/
       prometheus_exporter.py
   docs/
     sensor-inventory.md
+    grafana/
+      lhm_dashboard.json
+      hardware_dashboard.png
 ```
 
 ## Limitations
@@ -203,7 +221,7 @@ lhm-textfile-exporter/
 - Network and other unmatched LibreHardwareMonitor groups are classified, then dropped.
 - LibreHardwareMonitor must stay running with its web server enabled. This tool does not replace it.
 - `hardware_exporter_scrape_errors_total` is a process-lifetime gauge; it resets when the process restarts.
-- There is no log rotation and no bundled Grafana dashboards yet.
+- There is no log rotation yet.
 
 ## License
 
