@@ -1,5 +1,7 @@
 # lhm-textfile-exporter
 
+[![CI](https://github.com/mishelest/lhm-textfile-exporter/actions/workflows/ci.yml/badge.svg)](https://github.com/mishelest/lhm-textfile-exporter/actions/workflows/ci.yml)
+
 A small Windows tool that scrapes [LibreHardwareMonitor](https://github.com/LibreHardwareMonitor/LibreHardwareMonitor)
 and writes normalized Prometheus metrics for
 [windows_exporter](https://github.com/prometheus-community/windows_exporter)'s textfile collector.
