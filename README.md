@@ -1,135 +1,210 @@
 # lhm-textfile-exporter
 
-A small Windows tool that grabs hardware sensor data from
-[LibreHardwareMonitor](https://github.com/LibreHardwareMonitor/LibreHardwareMonitor)
-and turns it into clean Prometheus metrics for
-[windows_exporter](https://github.com/prometheus-community/windows_exporter).
+A small Windows tool that scrapes [LibreHardwareMonitor](https://github.com/LibreHardwareMonitor/LibreHardwareMonitor)
+and writes normalized Prometheus metrics for
+[windows_exporter](https://github.com/prometheus-community/windows_exporter)'s textfile collector.
 
-This project is a **textfile writer**, not a Prometheus HTTP server. It does not
-expose its own `/metrics` endpoint — `windows_exporter` (or another textfile
-collector) serves the file it produces.
+This is a **textfile writer**, not a Prometheus HTTP server. It does not expose `/metrics`.
+`windows_exporter` (or another textfile collector) serves the file it produces.
 
 ```text
-LibreHardwareMonitor -> lhmTF-exporter -> windows_exporter -> Prometheus -> Grafana
+LibreHardwareMonitor -> lhm-textfile-exporter -> windows_exporter -> Prometheus -> Grafana
 ```
 
-## Planned Features
-- Collect hardware metrics from LibreHardwareMonitor
-- Parse LHM's Prometheus-formatted `/metrics` endpoint
-- Normalize hardware-specific sensor names and units
-- Export hardware metrics in Prometheus textfile format
-- Atomic `.prom` file updates
-- Resilient handling of LHM and filesystem failures
-- Exporter health metrics
-- Configurable collection interval and output location
-- Designed to run continuously on Windows
+## What it does
 
+- Scrapes LibreHardwareMonitor's Prometheus `/metrics` endpoint on a configurable interval
+- Parses `lhm_*` series and groups them by hardware (`cpu`, `gpunvidia`, `storage`, …)
+- Normalizes vendor-specific sensor names into stable `hardware_*` gauges
+- Writes `textfile_inputs/hardware.prom` atomically (`# HELP` / `# TYPE`, Windows replace retry)
+- Keeps the last successful hardware samples if LibreHardwareMonitor becomes unreachable
+- Always writes exporter health metrics next to the hardware series
+- Logs to the console and to `logs/exporter.log`
 
-## Status
-This project is currently in early development and is being rebuilt from an
-existing working implementation.
+On first run it copies `config.default.yaml` to `config.yaml` (gitignored). Edit that file
+and point `librehardwaremonitor.url` at your LibreHardwareMonitor `/metrics` URL.
 
-The first public release target is `v0.1.0`.
+## Hardware support
 
-**Validated on:** AMD CPU + NVIDIA GPU + NVMe/SSD/HDD (Windows).
+Validated on **AMD CPU + NVIDIA GPU + NVMe/SSD/HDD** (Windows).
 
+| Exported | Not exported |
+|---|---|
+| AMD CPU (package, CCD, per-core) | Intel CPU |
+| NVIDIA GPU | AMD GPU / iGPU |
+| Motherboard fans, temperatures, voltages | Network |
+| Memory (physical, virtual, DIMM temperatures) | Unknown / unmatched sensors |
+| Storage (NVMe, SSD, HDD) | |
+
+Unknown sensors are skipped (logged at `DEBUG`). The full LibreHardwareMonitor → `hardware_*`
+mapping is in [docs/sensor-inventory.md](docs/sensor-inventory.md).
 
 ## Requirements
+
 - Windows
 - Python 3.10+
-- [LibreHardwareMonitor](https://github.com/LibreHardwareMonitor/LibreHardwareMonitor) - Web server enabled
-- [windows_exporter](https://github.com/prometheus-community/windows_exporter) - Textfile collector enabled
+- [LibreHardwareMonitor](https://github.com/LibreHardwareMonitor/LibreHardwareMonitor) with the web server enabled
+- [windows_exporter](https://github.com/prometheus-community/windows_exporter) with the textfile collector enabled
 
-## Quick Start
+## Quick start
 
+### 1. LibreHardwareMonitor
+
+1. Run LibreHardwareMonitor (elevated is typical for full sensors).
+2. Enable the web server.
+3. Confirm metrics load, for example `http://127.0.0.1:8085/metrics`.
+   You should see series named `lhm_cpu_*`, `lhm_gpunvidia_*`, and so on.
+
+Leave LibreHardwareMonitor running. lhm-textfile-exporter only scrapes it.
+
+### 2. Install and run
+
+```powershell
+git clone https://github.com/mishelest/lhm-textfile-exporter.git
+cd lhm-textfile-exporter
+
+python -m venv .venv
+.\.venv\Scripts\Activate.ps1
+pip install -r requirements.txt
+
+python main.py
 ```
-Coming Soon...
+
+On first run, `config.yaml` is created from `config.default.yaml`. Set
+`librehardwaremonitor.url` to your LibreHardwareMonitor `/metrics` URL, then restart.
+
+You should see `textfile_inputs/hardware.prom` appear and update every scrape interval
+(default 5s).
+
+### 3. Point windows_exporter at the file
+
+windows_exporter only reads `*.prom` files from its textfile directories
+(default `C:\Program Files\windows_exporter\textfile_inputs`).
+
+**Option A — keep the file in this repo** (no extra write permissions):
+
+```text
+windows_exporter.exe --collector.textfile.directories="C:\path\to\lhm-textfile-exporter\textfile_inputs"
 ```
 
-## Roadmap
+**Option B — write into windows_exporter's default folder** (`config.yaml`):
 
-### Repository Setup
-- [x] Create public repository
-- [x] Add `.gitignore` (Python, venv, logs, `config.yaml`, `*.prom`)
-- [x] Add MIT `LICENSE`
-- [x] Add `README.md`
-- [x] Define project layout
-- [x] Add `requirements.txt`
+```yaml
+exporter:
+  output_dir: "C:\\Program Files\\windows_exporter\\textfile_inputs"
+  output_file: "hardware.prom"
+```
 
+That path usually needs an elevated process, or an ACL that lets your user write there.
 
-### Config
-- [x] Create `config.default.yaml`
-- [x] Config loader (copy default -> `config.yaml` on first run)
+Confirm the series on windows_exporter (default `http://127.0.0.1:8085/metrics`).
+You should see `hardware_cpu_package_temperature_celsius` and `hardware_exporter_up`.
 
-### Domain Models
-- [x] `Metric`
-- [x] CPU models
-- [x] GPU models
-- [x] Motherboard models
-- [x] Memory models
-- [x] Storage models
-- [x] `HardwareMetrics`
-- [x] `ExporterHealth`
+### 4. Scrape with Prometheus
 
-### Ingest Pipeline
-- [x] Fetch LibreHardwareMonitor `/metrics`
-- [x] Handle connection failures, invalid responses, empty responses
-- [x] Log connection errors
-- [x] Parse Prometheus text
-- [x] Parse metrics names, labels, values
-- [x] Handle unknown metrics - skip
-- [x] Classify metrics by hardware group (`cpu`, `gpunvidia`, `storage`, ...)
+Scrape windows_exporter as usual. Do **not** scrape lhm-textfile-exporter directly.
 
-### Normalize (AMD CPU + NVIDIA GPU + Disks)
-- [x] Normalizer skeleton + safe index helpers
-- [x] Motherboard fans / temps / voltages
-- [x] AMD CPU Package + per-core sensors
-- [x] NVIDIA GPU sensors
-- [x] Memory sensors
-- [x] Storage sensors (NVMe, SSD, HDD)
+```yaml
+scrape_configs:
+  - job_name: windows
+    static_configs:
+      - targets: ["windows-host:8085"]
+```
 
-### Export & run
-- [x] Prometheus textfile writer (`# HELP` / `# TYPE`, atomic write + Windows retry)
-- [x] Export all hardware metrics (`hardware_*`)
-- [x] Exporter health metrics (`up`, scrape duration, last success, errors)
-- [x] Service wiring (config + pipeline + logging setup)
-- [x] Resilient scrape loop (keep last good samples; rewrite file with `up=0` on failure)
-- [x] `main.py` entrypoint
-- [x] End-to-end verified run with LibreHardwareMonitor + `hardware.prom` updates
+## Configuration
 
-### Logging
-#### Console Logging
-- [x] Startup information
-- [x] Configuration information
-- [x] Errors and warnings
+`config.yaml` (created on first run; not committed):
 
-#### File Logging
-- [x] File logging
-- [x] Error logging
+```yaml
+librehardwaremonitor:
+  url: "http://127.0.0.1:8085/metrics"
 
-### Docs before release
-- [x] Sensor inventory (`docs/sensor-inventory.md`)
-- [ ] Full README (quick start, verified setup, PromQL examples, code layout)
+exporter:
+  scrape_interval_seconds: 5
+  output_dir: "textfile_inputs"
+  output_file: "hardware.prom"
 
+logging:
+  level: "INFO"
+  file: "logs/exporter.log"
+```
 
-## v0.1.0 - Release
-- [ ] Minimal Grafana examples (`docs/grafana/`)
-- [ ] Bump `__version__` to `0.1.0`
-- [ ] Tag and publish `v0.1.0`
+| Key | Meaning |
+|---|---|
+| `librehardwaremonitor.url` | LibreHardwareMonitor Prometheus endpoint |
+| `exporter.scrape_interval_seconds` | How often to scrape LibreHardwareMonitor |
+| `exporter.output_dir` / `output_file` | Where the `.prom` file is written (relative to the repo, or absolute) |
+| `logging.level` | Console and file log level (`DEBUG`, `INFO`, `WARNING`, `ERROR`, `CRITICAL`) |
+| `logging.file` | Log path (created if missing) |
 
+## Metrics
 
-## Later
+All series are gauges.
 
-### Reliability & operations
-- [ ] Windows Service
-- [ ] Log rotation
-- [ ] Alertmanager / Prometheus alert examples
+- Hardware: `hardware_*` — see [docs/sensor-inventory.md](docs/sensor-inventory.md)
+- Health (always written):
 
-### Quality
-- [ ] Unit tests (parser / classifier / normalizer)
-- [ ] Github Actions CI
+| Metric | Meaning |
+|---|---|
+| `hardware_exporter_up` | `1` if the last LibreHardwareMonitor scrape succeeded, else `0` |
+| `hardware_exporter_scrape_duration_seconds` | Last scrape attempt duration |
+| `hardware_exporter_last_scrape_success_timestamp` | Unix time of last successful scrape |
+| `hardware_exporter_scrape_errors_total` | Scrape errors since process start (gauge) |
 
-### Packaging & Flexibility
-- [ ] Simple installer / packaging
-- [ ] Config-driven sensor allowlists
-- [ ] Broader hardware support (Intel CPU, AMD GPU, ...)
+On scrape failure, the file is still rewritten: last successful hardware samples (if any)
+plus health with `up=0`. If there has never been a successful scrape, only health is written.
+
+`hardware_exporter_scrape_errors_total` is a **gauge**, not a Prometheus counter — do not `rate()` it.
+
+### Example PromQL
+
+```promql
+hardware_exporter_up
+
+hardware_cpu_package_temperature_celsius
+hardware_gpu_core_temperature_celsius
+
+hardware_cpu_package_power_watts
+hardware_gpu_power_watts
+
+hardware_cpu_total_load_percent
+hardware_gpu_core_load_percent
+hardware_memory_load_percent
+
+hardware_cpu_core_load_percent
+hardware_storage_temperature_celsius
+hardware_storage_life_percent
+```
+
+## Layout
+
+```text
+lhm-textfile-exporter/
+  main.py                 # entrypoint
+  exporter_service.py     # scrape loop, logging, health
+  config.default.yaml     # template copied to config.yaml
+  src/
+    config.py
+    parser.py             # fetch + parse LibreHardwareMonitor Prometheus text
+    classifier.py         # group by lhm_<group>_...
+    normalizer.py         # sensors → hardware models
+    models.py
+    exporter/
+      prometheus_exporter.py
+  docs/
+    sensor-inventory.md
+```
+
+## Limitations
+
+- Windows only. Run from a terminal (`python main.py`); there is no Windows Service yet.
+- No installer or PyPI package. Clone and run from source.
+- Sensor matching is built for AMD CPU + NVIDIA GPU. Intel CPU and AMD GPU sensors are skipped.
+- Network and other unmatched LibreHardwareMonitor groups are classified, then dropped.
+- LibreHardwareMonitor must stay running with its web server enabled. This tool does not replace it.
+- `hardware_exporter_scrape_errors_total` is a process-lifetime gauge; it resets when the process restarts.
+- There is no log rotation and no bundled Grafana dashboards yet.
+
+## License
+
+MIT. See [LICENSE](LICENSE).
